@@ -71,40 +71,64 @@
     </div>
 
     <script>
-        let countries = [];
+    let countries = [];
 
-        // Sayfa açılırken tüm ülkeleri çek
-        fetch("https://restcountries.com/v3.1/all")
-            .then(r => r.json())
-            .then(data => {
-                countries = data;
+    fetch("https://restcountries.com/v3.1/all")
+        .then(res => {
+            if (!res.ok) {
+                throw new Error("API hata verdi");
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (!Array.isArray(data)) {
+                throw new Error("Gelen veri array değil");
+            }
 
-                const select = document.getElementById("countrySelect");
-                data.forEach(c => {
+            countries = data;
+            const select = document.getElementById("countrySelect");
+            select.innerHTML = "";
+
+            data.forEach(country => {
+                if (country?.name?.common) {
                     const option = document.createElement("option");
-                    option.value = c.name.common;
-                    option.innerText = c.name.common;
+                    option.value = country.name.common;
+                    option.textContent = country.name.common;
                     select.appendChild(option);
-                });
+                }
             });
 
-        function getCountry() {
-            const name = document.getElementById("countrySelect").value;
-            const country = countries.find(c => c.name.common === name);
+            showCountry();
+        })
+        .catch(err => {
+            document.getElementById("info").innerHTML =
+                "❌ Ülkeler yüklenemedi. API geçici hata verdi.";
+            console.error(err);
+        });
 
-            const currency = country.currencies
-                ? Object.values(country.currencies)[0]
-                : null;
+    function showCountry() {
+        const select = document.getElementById("countrySelect");
+        const country = countries.find(
+            c => c.name.common === select.value
+        );
 
-            document.getElementById("flag").src = country.flags.png;
+        if (!country) return;
 
-            document.getElementById("info").innerHTML = `
-                <p><strong>Başkent:</strong> ${country.capital ? country.capital[0] : "-"}</p>
-                <p><strong>Bölge:</strong> ${country.region}</p>
-                <p><strong>Nüfus:</strong> ${country.population.toLocaleString()}</p>
-                <p><strong>Para Birimi:</strong> ${currency ? currency.name + " (" + currency.symbol + ")" : "-"}</p>
-            `;
-        }
-    </script>
+        const currency = country.currencies
+            ? Object.values(country.currencies)[0]
+            : null;
+
+        document.getElementById("flag").src = country.flags?.png || "";
+
+        document.getElementById("info").innerHTML = `
+            <p><strong>Başkent:</strong> ${country.capital?.[0] || "-"}</p>
+            <p><strong>Bölge:</strong> ${country.region || "-"}</p>
+            <p><strong>Nüfus:</strong> ${country.population?.toLocaleString() || "-"}</p>
+            <p><strong>Para Birimi:</strong> ${
+                currency ? currency.name + " (" + currency.symbol + ")" : "-"
+            }</p>
+        `;
+    }
+</script>
 </body>
 </html>
