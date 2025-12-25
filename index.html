@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Ülkeler 🌍</title>
-
     <style>
         body {
             margin: 0;
@@ -14,23 +13,20 @@
             background: linear-gradient(135deg, #00c6ff, #0072ff);
             font-family: Arial, sans-serif;
         }
-
         .card {
             background: white;
-            padding: 30px;
+            padding: 20px;
             border-radius: 16px;
             width: 380px;
             text-align: center;
             box-shadow: 0 20px 40px rgba(0,0,0,0.25);
         }
-
         img {
             width: 100%;
             height: 180px;
             object-fit: contain;
             margin-bottom: 15px;
         }
-
         select, button {
             width: 100%;
             padding: 10px;
@@ -38,97 +34,150 @@
             border-radius: 8px;
             border: 1px solid #ccc;
         }
-
         button {
             background: #0072ff;
             color: white;
             border: none;
             cursor: pointer;
         }
-
         button:hover {
             background: #005bd1;
         }
-
         .info {
             margin-top: 15px;
             color: #333;
         }
+        ul {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+        }
+        li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .remove-btn {
+            background: #ff4d4d;
+            width: auto;
+            padding: 2px 8px;
+            font-size: 12px;
+        }
     </style>
 </head>
-
 <body>
-    <div class="card">
-        <h2>🌍 Ülke Bilgisi</h2>
 
-        <select id="countrySelect"></select>
+<div class="card">
+    <h2>🌍 Ülke Bilgisi</h2>
+    <select id="countrySelect" onchange="handleCountrySelection()"></select>
 
-        <button onclick="showCountry()">Bilgileri Göster</button>
-
-        <img id="flag" />
-
-        <div class="info" id="info"></div>
+    <div class="button-group">
+        <button onclick="handleCountrySelection()">Bilgileri Göster</button>
+        <button onclick="addToFavorites()" style="background: #28a745; margin-top: 5px;">⭐ Favorilere Ekle</button>
     </div>
 
-    <script>
-    let countries = [];
+    <img id="flag" />
+    <div class="info" id="info"></div>
 
-    fetch("https://restcountries.com/v3.1/region/europe")
-        .then(res => {
-            if (!res.ok) {
-                throw new Error("API hata verdi");
-            }
-            return res.json();
-        })
-        .then(data => {
-            if (!Array.isArray(data)) {
-                throw new Error("Gelen veri array değil");
-            }
+    <hr>
+    <h3>⭐ Favori Ülkelerim</h3>
+    <ul id="favoritesList"></ul>
+</div>
 
-            countries = data;
-            const select = document.getElementById("countrySelect");
-            select.innerHTML = "";
+<script>
+    // 1. STATE: Favorileri localStorage'dan başlatıyoruz
+    const state = {
+        countries: [],
+        selectedCountry: null,
+        favorites: JSON.parse(localStorage.getItem("favorites")) || [], // Kalıcılık burada sağlanıyor
+        error: null
+    };
 
-            data.forEach(country => {
-                if (country?.name?.common) {
-                    const option = document.createElement("option");
-                    option.value = country.name.common;
-                    option.textContent = country.name.common;
-                    select.appendChild(option);
-                }
-            });
-
-            showCountry();
-        })
-        .catch(err => {
-            document.getElementById("info").innerHTML =
-                "❌ Ülkeler yüklenemedi. API geçici hata verdi.";
-            console.error(err);
-        });
-
-    function showCountry() {
+    // 2. RENDER: State her değiştiğinde bu fonksiyon çalışır
+    function render() {
         const select = document.getElementById("countrySelect");
-        const country = countries.find(
-            c => c.name.common === select.value
-        );
+        const infoDiv = document.getElementById("info");
+        const flagImg = document.getElementById("flag");
+        const favList = document.getElementById("favoritesList");
 
-        if (!country) return;
+        if (state.error) {
+            infoDiv.innerHTML = `<p style="color:red">${state.error}</p>`;
+            return;
+        }
 
-        const currency = country.currencies
-            ? Object.values(country.currencies)[0]
-            : null;
+        // Dropdown doldurma
+        if (select.options.length === 0 && state.countries.length > 0) {
+            state.countries.forEach(country => {
+                const option = document.createElement("option");
+                option.value = country.name.common;
+                option.textContent = country.name.common;
+                select.appendChild(option);
+            });
+            state.selectedCountry = state.countries[0];
+        }
 
-        document.getElementById("flag").src = country.flags?.png || "";
+        // Seçili Ülke Bilgisi
+        const country = state.selectedCountry;
+        if (country) {
+            flagImg.src = country.flags.png;
+            infoDiv.innerHTML = `
+                <p><strong>Başkent:</strong> ${country.capital?.[0] || "-"}</p>
+                <p><strong>Nüfus:</strong> ${country.population?.toLocaleString()}</p>
+            `;
+        }
 
-        document.getElementById("info").innerHTML = `
-            <p><strong>Başkent:</strong> ${country.capital?.[0] || "-"}</p>
-            <p><strong>Bölge:</strong> ${country.region || "-"}</p>
-            <p><strong>Nüfus:</strong> ${country.population?.toLocaleString() || "-"}</p>
-            <p><strong>Para Birimi:</strong> ${
-                currency ? currency.name + " (" + currency.symbol + ")" : "-"
-            }</p>
-        `;
+        // FAVORİLERİ LİSTELEME
+        favList.innerHTML = ""; 
+        state.favorites.forEach((fav, index) => {
+            const li = document.createElement("li");
+            li.innerHTML = `
+                <span>${fav.name.common}</span>
+                <button class="remove-btn" onclick="removeFromFavorites(${index})">Sil</button>
+            `;
+            favList.appendChild(li);
+        });
     }
+
+    // 3. ACTIONS: State'i değiştiren fonksiyonlar
+    function handleCountrySelection() {
+        const val = document.getElementById("countrySelect").value;
+        state.selectedCountry = state.countries.find(c => c.name.common === val);
+        render();
+    }
+
+    function addToFavorites() {
+        const current = state.selectedCountry;
+        if (current && !state.favorites.some(f => f.name.common === current.name.common)) {
+            state.favorites.push(current);
+            // Güncel listeyi hafızaya kaydet
+            localStorage.setItem("favorites", JSON.stringify(state.favorites));
+            render();
+        }
+    }
+
+    function removeFromFavorites(index) {
+        state.favorites.splice(index, 1);
+        // Güncel listeyi hafızaya kaydet
+        localStorage.setItem("favorites", JSON.stringify(state.favorites));
+        render();
+    }
+
+    async function init() {
+        try {
+            const res = await fetch("https://restcountries.com/v3.1/region/europe");
+            if (!res.ok) throw new Error("API hatası");
+            state.countries = await res.json();
+            render();
+        } catch (err) {
+            state.error = "Veriler yüklenemedi.";
+            render();
+        }
+    }
+
+    init();
 </script>
+
 </body>
 </html>
